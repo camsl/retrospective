@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rétro Plateau — Sprint</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0f0e17;
+    --ink2: #2d2b4e;
+    --paper: #faf9f6;
+    --accent: #6c5ce7;
+    --accent2: #a29bfe;
+    --accent3: #fd79a8;
+    --rule: rgba(15,14,23,0.1);
+    --card-r: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* Dot grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(108,92,231,0.12) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+  }
+  .header-left { flex: 1; }
+  .eyebrow {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.05;
+    color: var(--ink);
+    letter-spacing: -0.03em;
+  }
+  h1 span { color: var(--accent); }
+  .tagline {
+    font-size: 14px;
+    color: rgba(15,14,23,0.5);
+    margin-top: 8px;
+    max-width: 420px;
+    line-height: 1.6;
+  }
+
+  /* Timer */
+  .timer-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .timer-display {
+    font-family: 'Syne', sans-serif;
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .timer-display.running { color: var(--accent); }
+  .timer-controls { display: flex; gap: 6px; }
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 7px 16px;
+    border-radius: 6px;
+    border: 1.5px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.primary:hover { background: var(--ink2); border-color: var(--ink2); }
+  .timer-label { font-size: 11px; color: rgba(15,14,23,0.4); text-align: right; }
+
+  /* Phase strip */
+  .phases {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2rem;
+    border: 1.5px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .phase {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    color: rgba(15,14,23,0.4);
+    border-right: 1.5px solid var(--rule);
+    cursor: pointer;
+    transition: all .15s;
+    text-align: center;
+  }
+  .phase:last-child { border-right: none; }
+  .phase:hover { background: rgba(108,92,231,0.06); color: var(--accent); }
+  .phase.active { background: var(--accent); color: white; }
+  .phase .phase-time { font-size: 10px; font-family: 'DM Sans', sans-serif; font-weight: 400; opacity: 0.8; display: block; margin-top: 1px; }
+
+  /* Board grid */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 2rem;
+  }
+
+  @media (max-width: 900px) { .board { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 580px) { .board { grid-template-columns: repeat(2, 1fr); } }
+
+  /* Cell */
+  .cell {
+    border-radius: var(--card-r);
+    border: 1.5px solid;
+    padding: 14px 12px 10px;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-height: 130px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background .15s;
+  }
+  .cell:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .cell:hover::after { background: rgba(255,255,255,0.15); }
+  .cell.open { transform: translateY(-2px); box-shadow: 0 0 0 2.5px var(--accent), 0 8px 24px rgba(108,92,231,0.15); }
+
+  .cell-icon { font-size: 22px; line-height: 1; }
+  .cell-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cell-preview {
+    font-size: 10px;
+    line-height: 1.4;
+    opacity: 0.7;
+    margin-top: auto;
+    font-style: italic;
+  }
+  .cell-count {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+  }
+  .cell-count.visible { display: flex; }
+
+  /* Detail panel */
+  .detail-panel {
+    background: white;
+    border: 1.5px solid var(--rule);
+    border-radius: 16px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 2rem;
+    display: none;
+    animation: slideIn .2s ease;
+  }
+  .detail-panel.open { display: block; }
+  @keyframes slideIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+
+  .detail-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .detail-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1.5px solid;
+    margin-bottom: 8px;
+  }
+  .detail-q {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .detail-hint {
+    font-size: 13px;
+    color: rgba(15,14,23,0.5);
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+    max-width: 560px;
+  }
+  .close-btn {
+    font-size: 18px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(15,14,23,0.3);
+    padding: 4px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .close-btn:hover { color: var(--ink); }
+
+  /* Sticky notes */
+  .stickies-area { display: flex; flex-direction: column; gap: 8px; }
+  .stickies-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .sticky {
+    background: #fffbe6;
+    border: 1px solid #f0e68c;
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 13px;
+    min-width: 120px;
+    max-width: 220px;
+    line-height: 1.5;
+    position: relative;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
+  }
+  .sticky-del {
+    position: absolute;
+    top: 3px; right: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    color: rgba(0,0,0,0.25);
+    background: none;
+    border: none;
+    line-height: 1;
+  }
+  .sticky-del:hover { color: #e74c3c; }
+  .add-sticky-row { display: flex; gap: 8px; align-items: center; }
+  .sticky-input {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 13px;
+    border: 1.5px solid var(--rule);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    max-width: 360px;
+  }
+  .sticky-input:focus { outline: none; border-color: var(--accent); }
+
+  /* Votes */
+  .vote-section { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .vote-label { font-size: 12px; color: rgba(15,14,23,0.45); }
+  .vote-btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1.5px solid var(--rule);
+    background: transparent;
+    cursor: pointer;
+    color: var(--ink);
+    transition: all .1s;
+  }
+  .vote-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .vote-count { font-size: 13px; font-weight: 600; min-width: 24px; }
+
+  /* Actions */
+  .actions-section {
+    background: white;
+    border: 1.5px solid var(--rule);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+  .action-row {
+    display: grid;
+    grid-template-columns: 1fr 160px 110px 32px;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  @media (max-width: 600px) { .action-row { grid-template-columns: 1fr 1fr; } }
+  .action-row input {
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    border: 1.5px solid var(--rule);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .action-row input:focus { outline: none; border-color: var(--accent); }
+  .del-action {
+    background: none;
+    border: 1.5px solid var(--rule);
+    border-radius: 6px;
+    cursor: pointer;
+    color: rgba(15,14,23,0.3);
+    font-size: 14px;
+    width: 32px;
+    height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .1s;
+  }
+  .del-action:hover { border-color: #e74c3c; color: #e74c3c; }
+
+  /* Guide */
+  .guide {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 2rem;
+  }
+  .guide-card {
+    background: white;
+    border: 1.5px solid var(--rule);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+  }
+  .guide-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent2);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .guide-title { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--ink); }
+  .guide-txt { font-size: 12px; color: rgba(15,14,23,0.5); line-height: 1.5; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(15,14,23,0.3);
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="header-left">
+      <div class="eyebrow">Rétrospective gamifiée</div>
+      <h1>Plateau<br><span>du sprint</span></h1>
+      <p class="tagline">15 cases, 15 questions. Cliquez sur une case, posez la question à l'équipe, récoltez les insights.</p>
+    </div>
+    <div class="timer-block">
+      <div class="timer-display" id="timer">5:00</div>
+      <div class="timer-label">minuteur par phase</div>
+      <div class="timer-controls">
+        <button class="btn primary" id="timer-btn" onclick="toggleTimer()">Lancer</button>
+        <button class="btn" onclick="resetTimer()">Reset</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="phases">
+    <div class="phase active" onclick="setPhase(this, 5)">Échauffement <span class="phase-time">5 min</span></div>
+    <div class="phase" onclick="setPhase(this, 20)">Tour du plateau <span class="phase-time">20 min</span></div>
+    <div class="phase" onclick="setPhase(this, 5)">Dot voting <span class="phase-time">5 min</span></div>
+    <div class="phase" onclick="setPhase(this, 10)">Actions <span class="phase-time">10 min</span></div>
+  </div>
+
+  <div class="board" id="board"></div>
+  <div class="detail-panel" id="detail"></div>
+
+  <div class="actions-section">
+    <div class="section-title">Actions pour le prochain sprint</div>
+    <div id="actions-list"></div>
+    <button class="btn" style="margin-top:6px;" onclick="addAction()">+ Ajouter une action</button>
+  </div>
+
+  <div class="guide">
+    <div class="guide-card"><div class="guide-num">01</div><div class="guide-title">Échauffement</div><div class="guide-txt">Chaque participant place son avatar sur la case qui illustre le mieux son ressenti du sprint.</div></div>
+    <div class="guide-card"><div class="guide-num">02</div><div class="guide-title">Tour du plateau</div><div class="guide-txt">L'animateur ouvre les cases les plus peuplées. L'équipe répond en post-its collectivement.</div></div>
+    <div class="guide-card"><div class="guide-num">03</div><div class="guide-title">Dot voting</div><div class="guide-txt">3 points par personne à répartir sur les post-its et sujets les plus importants.</div></div>
+    <div class="guide-card"><div class="guide-num">04</div><div class="guide-title">Actions</div><div class="guide-txt">Top 3 des thèmes → 1 action concrète chacun avec un responsable et une deadline.</div></div>
+  </div>
+
+  <footer>Rétro plateau sprint — partagez cette page avec votre équipe avant la session</footer>
+</div>
+
+<script>
+const cells = [
+  {icon:"🎯",label:"Objectif du sprint",q:"Avons-nous atteint le sprint goal ?",hint:"Si oui : pourquoi ça a marché ? Si non : qu'est-ce qui a bloqué concrètement ?",bg:"#EAF3DE",border:"#97C459",txt:"#27500A",tagbg:"#C0DD97"},
+  {icon:"⚡",label:"Énergie de l'équipe",q:"Sur 10, comment évalues-tu ton énergie ce sprint ?",hint:"Qu'est-ce qui t'a épuisé ? Qu'est-ce qui t'a rechargé ?",bg:"#FAEEDA",border:"#EF9F27",txt:"#633806",tagbg:"#FAC775"},
+  {icon:"🏆",label:"Victoire cachée",q:"Quelle petite victoire a failli passer inaperçue ?",hint:"Quelque chose dont l'équipe devrait être fière mais qu'on n'a pas célébré.",bg:"#EEEDFE",border:"#AFA9EC",txt:"#3C3489",tagbg:"#CECBF6"},
+  {icon:"🌀",label:"Obstacle surprise",q:"Quel obstacle imprévu as-tu rencontré ?",hint:"Et comment l'équipe l'a-t-elle — ou non — géré ensemble ?",bg:"#FCEBEB",border:"#F09595",txt:"#791F1F",tagbg:"#F7C1C1"},
+  {icon:"🤝",label:"Collaboration",q:"Quel moment de collaboration t'a marqué ce sprint ?",hint:"Ou au contraire : un moment où tu as manqué de soutien ?",bg:"#E6F1FB",border:"#85B7EB",txt:"#0C447C",tagbg:"#B5D4F4"},
+  {icon:"🐢",label:"Ce qui ralentit",q:"Qu'est-ce qui nous a ralentis sans qu'on en parle ?",hint:"Process, outil, dépendance, dette technique… Nommez-le sans tabou.",bg:"#FCEBEB",border:"#F09595",txt:"#791F1F",tagbg:"#F7C1C1"},
+  {icon:"💡",label:"Idée folle",q:"Si tu pouvais changer UNE chose dans notre façon de travailler ?",hint:"Pas besoin que ce soit réaliste — on vote ensuite pour les meilleures idées.",bg:"#FAEEDA",border:"#EF9F27",txt:"#633806",tagbg:"#FAC775"},
+  {icon:"🎲",label:"Case hasard",q:"Complète : 'Ce sprint, j'aurais aimé que l'équipe sache que…'",hint:"Un ressenti, une info, une frustration ou une fierté non dite.",bg:"#EEEDFE",border:"#AFA9EC",txt:"#3C3489",tagbg:"#CECBF6"},
+  {icon:"🔭",label:"Vision long terme",q:"Ce sprint nous rapproche-t-il de nos objectifs produit ?",hint:"Ou est-on en train de dériver ? Le produit évolue-t-il dans la bonne direction ?",bg:"#E1F5EE",border:"#5DCAA5",txt:"#085041",tagbg:"#9FE1CB"},
+  {icon:"🧩",label:"Pièce manquante",q:"Qu'est-ce qu'on n'a pas livré et qui aurait tout changé ?",hint:"Feature, fix, refacto, doc… Qu'est-ce qui manque vraiment dans le puzzle ?",bg:"#E6F1FB",border:"#85B7EB",txt:"#0C447C",tagbg:"#B5D4F4"},
+  {icon:"🎭",label:"Rôles & responsabilités",q:"Chacun a-t-il joué le bon rôle ce sprint ?",hint:"Y a-t-il des tâches qui n'étaient à personne ? Des frontières floues ?",bg:"#FBEAF0",border:"#ED93B1",txt:"#72243E",tagbg:"#F4C0D1"},
+  {icon:"📣",label:"Communication",q:"Qu'est-ce qui aurait mérité d'être dit plus tôt ?",hint:"Blocage, doute, changement de périmètre… Les non-dits coûtent cher.",bg:"#FAEEDA",border:"#EF9F27",txt:"#633806",tagbg:"#FAC775"},
+  {icon:"🌱",label:"Apprentissage",q:"Quelle compétence ou connaissance nouvelle as-tu acquise ?",hint:"Tech, process, soft skill… Qu'est-ce qu'on pourrait partager à l'équipe ?",bg:"#EAF3DE",border:"#97C459",txt:"#27500A",tagbg:"#C0DD97"},
+  {icon:"⚙️",label:"Outillage",q:"Nos outils nous ont-ils aidés ou freinés ?",hint:"IDE, CI/CD, ticketing, communication… Qu'est-ce qui grince ?",bg:"#F1EFE8",border:"#B4B2A9",txt:"#444441",tagbg:"#D3D1C7"},
+  {icon:"🚀",label:"Pour le prochain sprint",q:"Si on ne change qu'une seule chose le sprint prochain, ce serait…",hint:"Finissez la phrase. Soyez concrets et audacieux.",bg:"#EEEDFE",border:"#AFA9EC",txt:"#3C3489",tagbg:"#CECBF6"},
+];
+
+let openCell = null;
+let stickies = cells.map(() => []);
+let votes = cells.map(() => 0);
+let actions = [{what:'', who:'', when:''}];
+let timerInterval = null;
+let timerRunning = false;
+let timerSec = 300;
+
+function renderBoard() {
+  document.getElementById('board').innerHTML = cells.map((c, i) => `
+    <div class="cell${openCell===i?' open':''}" onclick="toggleCell(${i})" style="background:${c.bg};border-color:${c.border};">
+      <div class="cell-icon">${c.icon}</div>
+      <div class="cell-label" style="color:${c.txt};">${c.label}</div>
+      <div class="cell-preview" style="color:${c.txt};">${c.q.length>50?c.q.slice(0,50)+'…':c.q}</div>
+      <div class="cell-count${stickies[i].length>0?' visible':''}" id="count-${i}">${stickies[i].length}</div>
+    </div>
+  `).join('');
+}
+
+function toggleCell(i) {
+  openCell = openCell === i ? null : i;
+  renderBoard();
+  renderDetail();
+  if (openCell !== null) document.getElementById('detail').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function renderDetail() {
+  const d = document.getElementById('detail');
+  if (openCell === null) { d.className = 'detail-panel'; return; }
+  const c = cells[openCell];
+  const i = openCell;
+  d.className = 'detail-panel open';
+  d.innerHTML = `
+    <div class="detail-top">
+      <div>
+        <div class="detail-badge" style="background:${c.tagbg};color:${c.txt};border-color:${c.border};">${c.icon} ${c.label}</div>
+        <div class="detail-q">${c.q}</div>
+        <div class="detail-hint">${c.hint}</div>
+        <div class="vote-section">
+          <span class="vote-label">Votes :</span>
+          <button class="vote-btn" onclick="vote(${i},-1)">−</button>
+          <span class="vote-count" id="vote-${i}">${votes[i]}</span>
+          <button class="vote-btn" onclick="vote(${i},1)">+</button>
+        </div>
+      </div>
+      <button class="close-btn" onclick="toggleCell(${i})">✕</button>
+    </div>
+    <div class="stickies-area">
+      <div class="stickies-row" id="stickies-${i}">
+        ${stickies[i].map((s,j) => `<div class="sticky">${s}<button class="sticky-del" onclick="delSticky(${i},${j})">✕</button></div>`).join('')}
+      </div>
+      <div class="add-sticky-row">
+        <input class="sticky-input" id="sticky-input-${i}" placeholder="Ajouter un post-it…" onkeydown="if(event.key==='Enter')addSticky(${i})">
+        <button class="btn primary" onclick="addSticky(${i})">Ajouter</button>
+      </div>
+    </div>
+  `;
+}
+
+function addSticky(i) {
+  const inp = document.getElementById('sticky-input-' + i);
+  const val = inp.value.trim();
+  if (!val) return;
+  stickies[i].push(val);
+  inp.value = '';
+  renderDetail();
+  renderBoard();
+  inp.focus();
+}
+
+function delSticky(i, j) {
+  stickies[i].splice(j, 1);
+  renderDetail();
+  renderBoard();
+}
+
+function vote(i, delta) {
+  votes[i] = Math.max(0, votes[i] + delta);
+  document.getElementById('vote-' + i).textContent = votes[i];
+}
+
+function renderActions() {
+  document.getElementById('actions-list').innerHTML = actions.map((a, i) => `
+    <div class="action-row">
+      <input placeholder="Action concrète…" value="${a.what}" oninput="actions[${i}].what=this.value">
+      <input placeholder="Responsable" value="${a.who}" oninput="actions[${i}].who=this.value">
+      <input placeholder="Deadline" value="${a.when}" oninput="actions[${i}].when=this.value">
+      <button class="del-action" onclick="delAction(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function addAction() {
+  actions.push({what:'', who:'', when:''});
+  renderActions();
+  document.querySelectorAll('.action-row input')[actions.length * 4 - 4]?.focus();
+}
+
+function delAction(i) {
+  if (actions.length === 1) return;
+  actions.splice(i, 1);
+  renderActions();
+}
+
+function fmtTime(s) {
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+
+function toggleTimer() {
+  const btn = document.getElementById('timer-btn');
+  const disp = document.getElementById('timer');
+  if (timerRunning) {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    btn.textContent = 'Lancer';
+    disp.classList.remove('running');
+  } else {
+    timerRunning = true;
+    btn.textContent = 'Pause';
+    disp.classList.add('running');
+    timerInterval = setInterval(() => {
+      timerSec--;
+      if (timerSec <= 0) {
+        timerSec = 0;
+        clearInterval(timerInterval);
+        timerRunning = false;
+        btn.textContent = 'Relancer';
+        disp.classList.remove('running');
+      }
+      disp.textContent = fmtTime(timerSec);
+    }, 1000);
+  }
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerRunning = false;
+  document.getElementById('timer-btn').textContent = 'Lancer';
+  document.getElementById('timer').classList.remove('running');
+  document.getElementById('timer').textContent = fmtTime(timerSec);
+}
+
+function setPhase(el, minutes) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  clearInterval(timerInterval);
+  timerRunning = false;
+  timerSec = minutes * 60;
+  document.getElementById('timer-btn').textContent = 'Lancer';
+  document.getElementById('timer').classList.remove('running');
+  document.getElementById('timer').textContent = fmtTime(timerSec);
+}
+
+renderBoard();
+renderActions();
+</script>
+</body>
+</html>
